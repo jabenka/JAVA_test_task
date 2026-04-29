@@ -48,3 +48,7 @@ springdoc:
 logging:
   level:
     com.pingine.fleetpulse: INFO
+
+application:
+  telemetry:
+    query-limit: 100

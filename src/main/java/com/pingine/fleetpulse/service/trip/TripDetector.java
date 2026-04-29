@@ -1,10 +1,23 @@
 package com.pingine.fleetpulse.service.trip;
 
-import com.pingine.fleetpulse.domain.Trip;
-import com.pingine.fleetpulse.persistence.mongo.TelemetryPoint;
+import static java.util.Collections.emptyList;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import com.pingine.fleetpulse.domain.Trip;
+import com.pingine.fleetpulse.persistence.mongo.TelemetryPoint;
 
 /**
  * Splits a stream of telemetry points into completed trips.
@@ -14,6 +27,81 @@ import java.util.List;
 public class TripDetector {
 
     public List<Trip> detect(List<TelemetryPoint> points) {
-        throw new UnsupportedOperationException("Implement me.");
+        if (points == null || points.isEmpty()) {
+            return emptyList();
+        }
+
+        List<Trip> trips = new ArrayList<>();
+
+        List<TelemetryPoint> sortedPoints = new ArrayList<>(points);
+        sortedPoints.sort(Comparator.comparing(TelemetryPoint::getTs));
+
+        Map<String, List<TelemetryPoint>> currentTripPoints = new HashMap<>();
+        Map<String, Set<LocalDateTime>> seenTimestamps = new HashMap<>();
+
+        for (TelemetryPoint point : sortedPoints) {
+            String vehicleId = point.getVehicleId();
+
+            if (point.isIgnition()) {
+                currentTripPoints.putIfAbsent(vehicleId, new ArrayList<>());
+                seenTimestamps.putIfAbsent(vehicleId, new HashSet<>());
+
+                if (seenTimestamps.get(vehicleId).add(point.getTs())) {
+                    currentTripPoints.get(vehicleId).add(point);
+                }
+            }
+            else {
+                if (currentTripPoints.containsKey(vehicleId) && !currentTripPoints.get(vehicleId).isEmpty()) {
+                    if (seenTimestamps.get(vehicleId).add(point.getTs())) {
+                        currentTripPoints.get(vehicleId).add(point);
+                    }
+                    trips.add(buildTrip(currentTripPoints.get(vehicleId)));
+                    currentTripPoints.get(vehicleId).clear();
+                    currentTripPoints.remove(vehicleId);
+                    seenTimestamps.get(vehicleId).clear();
+                    seenTimestamps.remove(vehicleId);
+                }
+            }
+        }
+
+        return trips;
+    }
+
+    private Trip buildTrip(List<TelemetryPoint> points) {
+        if (points == null || points.isEmpty()) {
+            return null;
+        }
+        else {
+            String vehicleId = points.get(0).getVehicleId();
+            Instant startedAt = points.get(0).getTs().toInstant(ZoneOffset.UTC);
+            Instant endedAt = points.get(points.size() - 1).getTs().toInstant(ZoneOffset.UTC);
+            List<Trip.TripPoint> tripPoints = new ArrayList<>();
+            double avgSpeed = 0.0;
+
+            for (TelemetryPoint point : points) {
+                tripPoints.add(Trip.TripPoint.builder()
+                                       .ts(point.getTs().toInstant(ZoneOffset.UTC))
+                                       .lat(point.getLat())
+                                       .lon(point.getLon())
+                                       .speedKph(point.getSpeed())
+                                       .build());
+                avgSpeed += point.getSpeed();
+            }
+            avgSpeed /= points.size();
+
+            return Trip.builder()
+                    .vehicleId(vehicleId)
+                    .startedAt(startedAt)
+                    .endedAt(endedAt)
+                    .avgSpeedKph(avgSpeed)
+                    .distanceKm(calculateDistance(avgSpeed, startedAt, endedAt))
+                    .points(tripPoints)
+                    .build();
+        }
+    }
+
+    private double calculateDistance(double avgSpeed, Instant startedAt, Instant endedAt) {
+        double hours = Duration.between(startedAt, endedAt).toMillis() / 3_600_000.0;
+        return hours * avgSpeed;
     }
 }

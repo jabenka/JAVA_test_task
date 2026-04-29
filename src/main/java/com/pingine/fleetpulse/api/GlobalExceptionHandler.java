@@ -1,5 +1,6 @@
 package com.pingine.fleetpulse.api;
 
+import com.pingine.fleetpulse.service.NotFoundException;
 import com.pingine.fleetpulse.service.VehicleNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(VehicleNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleNotFound(VehicleNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFoundException(NotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
     }
 }
