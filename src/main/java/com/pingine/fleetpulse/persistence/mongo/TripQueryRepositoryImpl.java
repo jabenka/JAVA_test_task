@@ -21,7 +21,7 @@ public class TripQueryRepositoryImpl implements TripQueryRepository {
                 .addCriteria(Criteria.where("vehicleId").is(vehicleId))
                 .with(Sort.by(Sort.Direction.DESC, "ts"))
                 .limit(limit);
-        //query.withHint("vehicleId_ts_covered_idx");
+        query.withHint("vehicleId_ts_covered_idx");
         query.cursorBatchSize(limit);
         query.fields().include("lat", "lon", "speed", "ts", "ignition").exclude("_id");
         return mongoTemplate.find(query, TelemetryPointProjection.class,"telemetry_points");
