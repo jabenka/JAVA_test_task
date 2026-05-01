@@ -70,7 +70,7 @@ Pingine — европейская облачная платформа для GP
 
 ```bash
 docker-compose up -d
-mvn spring-boot:run
+`mvn spring-boot:run`
 ```
 
 - API: <http://localhost:8080>

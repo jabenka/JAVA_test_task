@@ -21,6 +21,7 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/pingine
+      auto-index-creation: true
     redis:
       host: localhost
       port: 6379
@@ -48,7 +49,8 @@ springdoc:
 logging:
   level:
     com.pingine.fleetpulse: INFO
+    org.springframework.data.mongodb.core.MongoTemplate: DEBUG
 
 application:
   telemetry:
-    query-limit: 100
+    query-limit: 100000

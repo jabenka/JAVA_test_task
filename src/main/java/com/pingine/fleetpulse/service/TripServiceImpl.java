@@ -1,5 +1,7 @@
 package com.pingine.fleetpulse.service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -9,8 +11,8 @@ import org.springframework.stereotype.Service;
 import com.pingine.fleetpulse.api.dto.TripResponse;
 import com.pingine.fleetpulse.api.dto.VehicleResponse;
 import com.pingine.fleetpulse.domain.Trip;
-import com.pingine.fleetpulse.persistence.mongo.TelemetryPoint;
 import com.pingine.fleetpulse.persistence.mongo.TelemetryRepository;
+import com.pingine.fleetpulse.persistence.mongo.projection.TelemetryPointProjection;
 import com.pingine.fleetpulse.service.trip.TripDetector;
 
 import lombok.RequiredArgsConstructor;
@@ -28,8 +30,19 @@ public class TripServiceImpl implements TripService {
 
     @Override
     public TripResponse getLastTrip(String vehicleId) {
-        List<TelemetryPoint> pointList = telemetryRepository.findRecentPoints(vehicleId, queryLimit);
-        List<Trip> trips = tripDetector.detect(pointList);
+        List<Long> diffTime = new ArrayList<>();
+        for (int i = 0; i < 101; i++) {
+            Long start = System.currentTimeMillis();
+            List<TelemetryPointProjection> pointList = telemetryRepository.findRecentPoints(vehicleId, queryLimit);
+            Long end = System.currentTimeMillis();
+            diffTime.add(end - start);
+        }
+        Collections.sort(diffTime);
+        System.out.println("Medain: " + diffTime.get(diffTime.size() / 2));
+        System.out.println(diffTime.stream().mapToLong(Long::longValue).average());
+
+        List<TelemetryPointProjection> pointList = telemetryRepository.findRecentPoints(vehicleId, queryLimit);
+        List<Trip> trips = tripDetector.detect(pointList, vehicleId);
         if (trips.isEmpty()) {
             throw new NotFoundException(String.format("Trips for vehicle [%s] not found", vehicleId));
         }
